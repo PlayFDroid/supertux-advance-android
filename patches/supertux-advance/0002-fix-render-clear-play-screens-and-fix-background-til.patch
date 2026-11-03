@@ -1,0 +1,121 @@
+From 45781c659797b8a37f843f933a1789915e1adaf0 Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Tue, 3 Nov 2026 12:03:08 +0100
+Subject: [PATCH 2/2] fix(render): clear play screens and fix background
+ tiling/modulo issues
+
+---
+ src/bg.nut     | 32 +++++++++++++++++++++-----------
+ src/gmplay.nut |  6 ++++++
+ 2 files changed, 27 insertions(+), 11 deletions(-)
+
+diff --git a/src/bg.nut b/src/bg.nut
+index 27971b94..d09c4e61 100644
+--- a/src/bg.nut
++++ b/src/bg.nut
+@@ -250,7 +250,7 @@ dbgIceForest <- function () {
+ 			drawSprite(bgIceForest2, 0, ((-camx / 8) % 480) + i * 480, gvHorizon - camy - 192);
+ 		for (local i = 0; i < getBGLoop(spriteW(bgIceForest0)); i++)
+ 			drawSprite(bgIceForest1, 0, ((-camx / 4) % 640) + i * 640, gvHorizon - camy - 256);
+-		for (local i = 0; i < getBGLoop(bgIceForest1); i++)
++		for (local i = 0; i < getBGLoop(spriteW(bgIceForest1)); i++)
+ 			drawSprite(bgIceForest0, 0, ((-camx / 2) % 800) + i * 800, gvHorizon - camy - 320);
+ 	} else {
+ 		for (local i = 0; i < getBGLoop(spriteW(bgIceForest2)); i++)
+@@ -269,7 +269,7 @@ dbgIceForestNight <- function () {
+ 			drawSprite(bgIceForest2, 0, ((-camx / 8) % 480) + i * 480, gvHorizon - camy - 192);
+ 		for (local i = 0; i < getBGLoop(spriteW(bgIceForest0)); i++)
+ 			drawSprite(bgIceForest1, 0, ((-camx / 4) % 640) + i * 640, gvHorizon - camy - 256);
+-		for (local i = 0; i < getBGLoop(bgIceForest1); i++)
++		for (local i = 0; i < getBGLoop(spriteW(bgIceForest1)); i++)
+ 			drawSprite(bgIceForest0, 0, ((-camx / 2) % 800) + i * 800, gvHorizon - camy - 320);
+ 	} else {
+ 		for (local i = 0; i < getBGLoop(spriteW(bgIceForest2)); i++)
+@@ -284,10 +284,13 @@ dbgIceForestNight <- function () {
+ dbgSnowPlain <- function () {
+ 	dbgOceanGray();
+ 
+-	for (local i = 0; i < ceil(gvScreenW / 640.0) + 1; i++) {
+-		drawSprite(bgSnowMountains, 0, i * 640 - camx / 16, 112, 0, 0, 0.5, 0.5, 1.0, 0xd0d0d0ff);
+-		drawSprite(bgSnowMountains, 0, 320 + i * 640 - camx / 16, 112, 0, 0, 0.5, 0.5, 1.0, 0xd0d0d0ff);
+-		drawSprite(bgSnowMountains, 0, i * 640 - camx / 8, 112);
++	local loops = ceil(gvScreenW / 640.0) + 2;
++	local ox16 = -((camx / 16) % 640) - 640;
++	local ox8 = -((camx / 8) % 640) - 640;
++	for (local i = 0; i < loops; i++) {
++		drawSprite(bgSnowMountains, 0, i * 640 + ox16, 112, 0, 0, 0.5, 0.5, 1.0, 0xd0d0d0ff);
++		drawSprite(bgSnowMountains, 0, 320 + i * 640 + ox16, 112, 0, 0, 0.5, 0.5, 1.0, 0xd0d0d0ff);
++		drawSprite(bgSnowMountains, 0, i * 640 + ox8, 112);
+ 	}
+ };
+ 
+@@ -492,6 +495,8 @@ dbgFortMagma <- function () {
+ };
+ 
+ dbgTheatre <- function () {
++	setDrawColor(0x000000ff);
++	drawRec(0, 0, screenW(), screenH(), true);
+ 	drawSprite(bgCharSel, 0, screenW() / 2, 0);
+ };
+ 
+@@ -503,16 +508,21 @@ dbgSwitchPalace <- function () {
+ };
+ 
+ dbgSunsetMountain <- function () {
+-	// drawImage(gvScreen, 0, 0)
+-	for (local i = 0; i < 2; i++) {
+-		drawImage(bgSunsetMountain, i * 940 - camx / 8.0, 0);
++	local w = 940;
++	local loops = getBGLoop(w) + 1;
++	local ox = ((-camx / 8) % w) - w;
++	for (local i = 0; i < loops; i++) {
++		drawImage(bgSunsetMountain, ox + i * w, 0);
+ 	}
+ };
+ 
+ dbgDesert <- function () {
+-	for (local i = 0; i < 2; i++) {
++	local w = 350;
++	local loops = getBGLoop(w) + 1;
++	local ox = -((camx / 8) % w) - w;
++	for (local i = 0; i < loops; i++) {
+ 		for (local j = 0; j < 240; j++)
+-			drawSprite(bgDesert, j, i * 350 - 8 - ((camx / 8) % 350) + (sin((j + getFrames() / 4.0) / 8.0) + 0.5), j);
++			drawSprite(bgDesert, j, ox - 8 + i * w + (sin((j + getFrames() / 4.0) / 8.0) + 0.5), j);
+ 	}
+ };
+ 
+diff --git a/src/gmplay.nut b/src/gmplay.nut
+index c0a0c75e..fde650f3 100644
+--- a/src/gmplay.nut
++++ b/src/gmplay.nut
+@@ -48,6 +48,8 @@ startPlay <- function (level, newLevel = true, skipIntro = false) {
+ 	gvBoss = false;
+ 	gvExitTimer = 0.0;
+ 	deleteAllActors();
++	drawBG = 0;
++	drawBG2 = 0;
+ 	drawWeather = 0;
+ 	drawWeather2 = 0;
+ 	camxLead0 = 0;
+@@ -609,6 +611,8 @@ gmPlay <- function () {
+ 
+ 	gvLightScreen = gvLightScreen1;
+ 	setDrawTarget(gvPlayScreen);
++	setDrawColor(0x000000ff);
++	clearScreen();
+ 	runAmbientLight();
+ 
+ 	gvLightBG = false;
+@@ -717,6 +721,8 @@ gmPlay <- function () {
+ 
+ 		gvLightScreen = gvLightScreen2;
+ 		setDrawTarget(gvPlayScreen2);
++		setDrawColor(0x000000ff);
++		clearScreen();
+ 		runAmbientLight(true);
+ 
+ 		gvLightBG = false;
+-- 
+2.53.0
+

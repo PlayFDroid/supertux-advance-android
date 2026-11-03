@@ -1,0 +1,558 @@
+From 91b51044163d14b22386fc30cc7dafe32e66ec4f Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Tue, 3 Nov 2026 10:58:48 +0100
+Subject: [PATCH 2/4] android: add Android platform support, internal paths,
+ and touch controls
+
+---
+ rte/src/brux/fileio.cpp |  12 ++
+ rte/src/brux/global.cpp |   2 +
+ rte/src/brux/global.hpp |   2 +
+ rte/src/brux/main.cpp   |  37 +++++
+ rte/src/brux/main.hpp   |   2 +
+ rte/src/brux/net.cpp    |  12 ++
+ rte/src/brux/touch.cpp  | 294 ++++++++++++++++++++++++++++++++++++++++
+ rte/src/brux/touch.hpp  |  21 +++
+ 8 files changed, 382 insertions(+)
+ create mode 100644 rte/src/brux/touch.cpp
+ create mode 100644 rte/src/brux/touch.hpp
+
+diff --git a/rte/src/brux/fileio.cpp b/rte/src/brux/fileio.cpp
+index 0283a62..773fcbd 100644
+--- a/rte/src/brux/fileio.cpp
++++ b/rte/src/brux/fileio.cpp
+@@ -22,6 +22,10 @@
+ #include "brux/fileio.hpp"
+ 
+ #include <physfs.h>
++#ifdef __ANDROID__
++#include <SDL2/SDL.h>
++#include <sys/stat.h>
++#endif
+ 
+ #include <filesystem>
+ 
+@@ -83,6 +87,14 @@ std::string xyGetWriteDir() {
+ }
+ 
+ std::string xyGetPrefDir(const std::string& org, const std::string& app) {
++#ifdef __ANDROID__
++	const char* internalStorage = SDL_AndroidGetInternalStoragePath();
++	if (internalStorage) {
++		std::string pref = std::string(internalStorage) + "/save/";
++		mkdir(pref.c_str(), 0755);
++		return pref;
++	}
++#endif
+ 	const char* dir = PHYSFS_getPrefDir(org.c_str(), app.c_str());
+ 	if (dir == NULL)
+ 		throw PhysFSError("Error getting user-and-app specific directory",
+diff --git a/rte/src/brux/global.cpp b/rte/src/brux/global.cpp
+index 770ac80..4700e6b 100644
+--- a/rte/src/brux/global.cpp
++++ b/rte/src/brux/global.cpp
+@@ -25,7 +25,9 @@
+ #include "brux/text.hpp"
+ #include "brux/shapes.hpp"
+ 
++#ifndef __ANDROID__
+ int __stack_chk_guard = 0xdeadbeef;
++#endif
+ 
+ // Used to detect a request to close the application
+ 
+diff --git a/rte/src/brux/global.hpp b/rte/src/brux/global.hpp
+index 3d25a4f..c9ff2c3 100644
+--- a/rte/src/brux/global.hpp
++++ b/rte/src/brux/global.hpp
+@@ -31,7 +31,9 @@
+ 
+ #define pi 3.14159265f
+ 
++#ifndef __ANDROID__
+ extern int __stack_chk_guard;
++#endif
+ extern bool gvQuit;
+ extern int gvMouseX;
+ extern int gvMouseY;
+diff --git a/rte/src/brux/main.cpp b/rte/src/brux/main.cpp
+index 7086fb1..c713e7e 100644
+--- a/rte/src/brux/main.cpp
++++ b/rte/src/brux/main.cpp
+@@ -34,6 +34,7 @@
+ #include <simplesquirrel/simplesquirrel.hpp>
+ 
+ #include "audio/audio.hpp"
++#include "brux/touch.hpp"
+ #include "brux/core.hpp"
+ #include "brux/fileio.hpp"
+ #include "brux/global.hpp"
+@@ -60,6 +61,14 @@ int main(int argc, char* argv[]) {
+ 		console.log(FS.readdir("/bin"));
+ 		FS.chdir('/bin');
+ 	);
++#endif
++#ifdef __ANDROID__
++	const char* internalStorage = SDL_AndroidGetInternalStoragePath();
++	if (internalStorage) {
++		std::string gameDir = std::string(internalStorage) + "/game";
++		chdir(gameDir.c_str());
++		gvWorkDir = gameDir;
++	}
+ #endif
+ 	// Process arguments
+ 	std::string xygapp = "";
+@@ -118,7 +127,17 @@ int main(int argc, char* argv[]) {
+ 
+ 	// Set the current write directory to a default for Brux.
+ 	// Can be changed later by the game.
++#ifdef __ANDROID__
++	if (internalStorage) {
++		std::string saveDir = std::string(internalStorage) + "/save/";
++		mkdir(saveDir.c_str(), 0755);
++		xySetWriteDir(saveDir);
++	} else {
++		xySetWriteDir(xyGetPrefDir("brux", "brux"));
++	}
++#else
+ 	xySetWriteDir(xyGetPrefDir("brux", "brux"));
++#endif
+ 
+ 	bool shouldLoad = false;
+ 	
+@@ -206,6 +225,9 @@ int xyInit() {
+ 	}
+ 
+ 	// Create window
++#ifdef __ANDROID__
++	xyInitTouchControls();
++#endif
+ 	gvWindow = SDL_CreateWindow("Brux GDK", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, gvScrW, gvScrH, SDL_WINDOW_RESIZABLE);
+ 
+ 	if (gvWindow == 0) {
+@@ -475,10 +497,20 @@ void xyUpdate() {
+ 			gvInputString = Event.text.text;
+ 			continue;
+ 		}
++
++#ifdef __ANDROID__
++		if (Event.type == SDL_FINGERDOWN || Event.type == SDL_FINGERUP || Event.type == SDL_FINGERMOTION) {
++			xyHandleTouchFinger(Event.tfinger);
++			continue;
++		}
++#endif
+ 	}
+ 
+ 	// Update the game window
+ 
++#ifdef __ANDROID__
++	xyDrawTouchControls();
++#endif
+ 	SDL_RenderPresent(gvRender);
+ 
+ 	Uint32 olddraw = gvDrawColor;
+@@ -501,6 +533,9 @@ void xyUpdate() {
+ 	for (int i = 0; i < 322; i++) {
+ 		keystate[i] = sdlKeys[i];
+ 	}
++#ifdef __ANDROID__
++	xyApplyTouchControls();
++#endif
+ 
+ 	SDL_GetMouseState(&gvMouseX, &gvMouseY);
+ 
+@@ -680,9 +715,11 @@ std::string xyGetOS() {
+ 	return SDL_GetPlatform(); // TODO: Implement an SDL-agnostic way of doing this as well
+ }
+ 
++#ifndef __ANDROID__
+ void __stack_chk_fail(void) {
+ 	xyPrint("Stack smash detected.");
+ }
++#endif
+ 
+ 
+ void xyRegisterMainAPI(ssq::VM& vm) {
+diff --git a/rte/src/brux/main.hpp b/rte/src/brux/main.hpp
+index 2530681..26c8543 100644
+--- a/rte/src/brux/main.hpp
++++ b/rte/src/brux/main.hpp
+@@ -69,7 +69,9 @@
+ 	#define getCD getcwd
+ #endif // _WIN32
+ 
++#ifndef __ANDROID__
+ void __stack_chk_fail(void);
++#endif
+ 
+ #include "external/cJSON.h"
+ #include <SDL2/SDL.h>
+diff --git a/rte/src/brux/net.cpp b/rte/src/brux/net.cpp
+index 4466daf..5b86b29 100644
+--- a/rte/src/brux/net.cpp
++++ b/rte/src/brux/net.cpp
+@@ -26,8 +26,10 @@
+ 
+ #include "brux/global.hpp"
+ 
++#ifdef USE_CURL
+ #define CURL_STATICLIB
+ #include <curl/curl.h>
++#endif
+ 
+ /////////////////
+ // WEB SOCKETS //
+@@ -393,6 +395,7 @@ int xyAcceptSocket(int wsid) {
+ // CURL //
+ //////////
+ 
++#ifdef USE_CURL
+ CURL* curlHandle = nullptr;
+ 
+ bool xyInitCurl() {
+@@ -503,6 +506,15 @@ std::string xyCurlPost(const std::string& url, const std::string& data) {
+ 
+ 	return response;
+ }
++#else
++bool xyInitCurl() { return false; }
++void xyCleanupCurl() {}
++void xyCurlOpt(int opt, int value) {}
++void xyCurlOpt(int opt, const std::string& value) {}
++void xyCurlReset() {}
++std::string xyCurlGet(const std::string& url) { return ""; }
++std::string xyCurlPost(const std::string& url, const std::string& data) { return ""; }
++#endif
+ 
+ void xyRegisterNetworkAPI(ssq::VM& vm) {
+ 	vm.addFunc("newNetSocket", xyNewSocket);	// Doc'd
+diff --git a/rte/src/brux/touch.cpp b/rte/src/brux/touch.cpp
+new file mode 100644
+index 0000000..ac66b81
+--- /dev/null
++++ b/rte/src/brux/touch.cpp
+@@ -0,0 +1,294 @@
++//  Brux - Touch Controls for Mobile/Android
++//  Copyright (C) 2026 SuperTux Advance Contributors
++//
++//  This program is free software: you can redistribute it and/or modify
++//  it under the terms of the GNU Affero General Public License as published by
++//  the Free Software Foundation, either version 3 of the License, or
++//  (at your option) any later version.
++
++#include "brux/touch.hpp"
++#include "brux/global.hpp"
++
++#include <map>
++#include <vector>
++#include <cmath>
++
++#ifdef __ANDROID__
++static bool gTouchEnabled = true;
++#else
++static bool gTouchEnabled = false;
++#endif
++
++struct TouchPoint {
++	float x;
++	float y;
++};
++
++static std::map<SDL_FingerID, TouchPoint> gActiveFingers;
++
++enum VirtualButton {
++	VBTN_UP = 0,
++	VBTN_DOWN,
++	VBTN_LEFT,
++	VBTN_RIGHT,
++	VBTN_A,      // Jump (k_z = 29)
++	VBTN_B,      // Run / Attack (k_x = 27)
++	VBTN_X,      // Special 1 (k_c = 6)
++	VBTN_Y,      // Special 2 (k_lshift = 225)
++	VBTN_SWAP,   // Swap (k_a = 4)
++	VBTN_PAUSE,  // Pause (k_escape = 41)
++	VBTN_START,  // Start / Enter (k_return = 40)
++	VBTN_COUNT
++};
++
++static bool gButtonState[VBTN_COUNT] = { false };
++
++void xyInitTouchControls() {
++	gActiveFingers.clear();
++	for (int i = 0; i < VBTN_COUNT; i++) {
++		gButtonState[i] = false;
++	}
++}
++
++void xySetTouchControls(bool enabled) {
++	gTouchEnabled = enabled;
++}
++
++bool xyGetTouchControls() {
++	return gTouchEnabled;
++}
++
++void xyHandleTouchFinger(const SDL_TouchFingerEvent& finger) {
++	if (!gTouchEnabled) return;
++
++	if (finger.type == SDL_FINGERDOWN || finger.type == SDL_FINGERMOTION) {
++		gActiveFingers[finger.fingerId] = { finger.x, finger.y };
++	} else if (finger.type == SDL_FINGERUP) {
++		gActiveFingers.erase(finger.fingerId);
++	}
++}
++
++void xyApplyTouchControls() {
++	if (!gTouchEnabled) return;
++
++	for (int i = 0; i < VBTN_COUNT; i++) {
++		gButtonState[i] = false;
++	}
++
++	float sw = (float)gvScrW;
++	float sh = (float)gvScrH;
++	if (sw <= 0) sw = 426.0f;
++	if (sh <= 0) sh = 240.0f;
++
++	// D-Pad center & radius in normalized coords
++	float dpadCx = 0.16f;
++	float dpadCy = 0.72f;
++	float dpadRadius = 0.16f;
++	float deadzone = 0.035f;
++
++	// Buttons (normalized centers & radii)
++	// A: bottom right (Jump)
++	float btnAx = 0.90f, btnAy = 0.75f, btnAr = 0.075f;
++	// B: left of A (Run/Shoot)
++	float btnBx = 0.78f, btnBy = 0.85f, btnBr = 0.075f;
++	// X: above A (Spec1)
++	float btnXx = 0.88f, btnXy = 0.55f, btnXr = 0.065f;
++	// Y: above B (Spec2)
++	float btnYx = 0.76f, btnYy = 0.65f, btnYr = 0.065f;
++	// Swap: top left
++	float btnSwapX = 0.08f, btnSwapY = 0.12f, btnSwapR = 0.06f;
++	// Pause: top right
++	float btnPauseX = 0.92f, btnPauseY = 0.12f, btnPauseR = 0.06f;
++	// Start: top center
++	float btnStartX = 0.50f, btnStartY = 0.10f, btnStartR = 0.06f;
++
++	for (auto const& [id, pt] : gActiveFingers) {
++		float px = pt.x;
++		float py = pt.y;
++
++		// D-Pad check
++		float ddx = px - dpadCx;
++		float ddy = py - dpadCy;
++		float distDpad = std::sqrt(ddx * ddx + ddy * ddy);
++
++		if (distDpad <= dpadRadius) {
++			if (ddx < -deadzone) gButtonState[VBTN_LEFT] = true;
++			if (ddx > deadzone)  gButtonState[VBTN_RIGHT] = true;
++			if (ddy < -deadzone) gButtonState[VBTN_UP] = true;
++			if (ddy > deadzone)  gButtonState[VBTN_DOWN] = true;
++		}
++
++		// Button checks
++		auto inRadius = [](float x, float y, float cx, float cy, float r) {
++			float dx = x - cx;
++			float dy = y - cy;
++			return (dx * dx + dy * dy) <= (r * r);
++		};
++
++		if (inRadius(px, py, btnAx, btnAy, btnAr)) gButtonState[VBTN_A] = true;
++		if (inRadius(px, py, btnBx, btnBy, btnBr)) gButtonState[VBTN_B] = true;
++		if (inRadius(px, py, btnXx, btnXy, btnXr)) gButtonState[VBTN_X] = true;
++		if (inRadius(px, py, btnYx, btnYy, btnYr)) gButtonState[VBTN_Y] = true;
++		if (inRadius(px, py, btnSwapX, btnSwapY, btnSwapR)) gButtonState[VBTN_SWAP] = true;
++		if (inRadius(px, py, btnPauseX, btnPauseY, btnPauseR)) gButtonState[VBTN_PAUSE] = true;
++		if (inRadius(px, py, btnStartX, btnStartY, btnStartR)) gButtonState[VBTN_START] = true;
++	}
++
++	// Map virtual buttons to SDL Scancodes in keystate
++	if (gButtonState[VBTN_UP])    keystate[SDL_SCANCODE_UP] = 1;      // 82
++	if (gButtonState[VBTN_DOWN])  keystate[SDL_SCANCODE_DOWN] = 1;    // 81
++	if (gButtonState[VBTN_LEFT])  keystate[SDL_SCANCODE_LEFT] = 1;    // 80
++	if (gButtonState[VBTN_RIGHT]) keystate[SDL_SCANCODE_RIGHT] = 1;   // 79
++
++	if (gButtonState[VBTN_A])     keystate[SDL_SCANCODE_Z] = 1;       // 29 (Jump)
++	if (gButtonState[VBTN_B])     keystate[SDL_SCANCODE_X] = 1;       // 27 (Shoot/Run)
++	if (gButtonState[VBTN_X])     keystate[SDL_SCANCODE_C] = 1;       // 6  (Special 1)
++	if (gButtonState[VBTN_Y])     keystate[SDL_SCANCODE_LSHIFT] = 1;  // 225(Special 2)
++
++	if (gButtonState[VBTN_SWAP])  keystate[SDL_SCANCODE_A] = 1;       // 4  (Swap)
++	if (gButtonState[VBTN_PAUSE]) keystate[SDL_SCANCODE_ESCAPE] = 1;  // 41 (Pause)
++	if (gButtonState[VBTN_START]) keystate[SDL_SCANCODE_RETURN] = 1;  // 40 (Enter)
++}
++
++static void drawCircle(SDL_Renderer* r, int cx, int cy, int radius, Uint8 red, Uint8 green, Uint8 blue, Uint8 alpha, bool fill) {
++	SDL_SetRenderDrawColor(r, red, green, blue, alpha);
++	if (fill) {
++		for (int w = 0; w < radius * 2; w++) {
++			for (int h = 0; h < radius * 2; h++) {
++				int dx = radius - w;
++				int dy = radius - h;
++				if ((dx*dx + dy*dy) <= (radius * radius)) {
++					SDL_RenderDrawPoint(r, cx + dx, cy + dy);
++				}
++			}
++		}
++	} else {
++		int x = radius - 1;
++		int y = 0;
++		int tx = 1;
++		int ty = 1;
++		int err = tx - (radius << 1);
++		while (x >= y) {
++			SDL_RenderDrawPoint(r, cx + x, cy - y);
++			SDL_RenderDrawPoint(r, cx + x, cy + y);
++			SDL_RenderDrawPoint(r, cx - x, cy - y);
++			SDL_RenderDrawPoint(r, cx - x, cy + y);
++			SDL_RenderDrawPoint(r, cx + y, cy - x);
++			SDL_RenderDrawPoint(r, cx + y, cy + x);
++			SDL_RenderDrawPoint(r, cx - y, cy - x);
++			SDL_RenderDrawPoint(r, cx - y, cy + x);
++			if (err <= 0) {
++				y++;
++				err += ty;
++				ty += 2;
++			}
++			if (err > 0) {
++				x--;
++				tx += 2;
++				err += tx - (radius << 1);
++			}
++		}
++	}
++}
++
++// 5x7 bitmapped character drawing
++static void drawChar(SDL_Renderer* r, char c, int x, int y, int scale, Uint8 red, Uint8 green, Uint8 blue, Uint8 alpha) {
++	static const unsigned char font_A[7] = { 0x0E, 0x11, 0x11, 0x1F, 0x11, 0x11, 0x11 };
++	static const unsigned char font_B[7] = { 0x1E, 0x11, 0x11, 0x1E, 0x11, 0x11, 0x1E };
++	static const unsigned char font_X[7] = { 0x11, 0x11, 0x0A, 0x04, 0x0A, 0x11, 0x11 };
++	static const unsigned char font_Y[7] = { 0x11, 0x11, 0x0A, 0x04, 0x04, 0x04, 0x04 };
++	static const unsigned char font_P[7] = { 0x1E, 0x11, 0x11, 0x1E, 0x10, 0x10, 0x10 };
++	static const unsigned char font_S[7] = { 0x0F, 0x10, 0x10, 0x0E, 0x01, 0x01, 0x1E };
++	static const unsigned char font_II[7]= { 0x1B, 0x1B, 0x1B, 0x1B, 0x1B, 0x1B, 0x1B };
++
++	const unsigned char* glyph = nullptr;
++	switch (c) {
++		case 'A': glyph = font_A; break;
++		case 'B': glyph = font_B; break;
++		case 'X': glyph = font_X; break;
++		case 'Y': glyph = font_Y; break;
++		case 'P': glyph = font_P; break;
++		case 'S': glyph = font_S; break;
++		case '|': glyph = font_II; break;
++		default: return;
++	}
++
++	SDL_SetRenderDrawColor(r, red, green, blue, alpha);
++	for (int row = 0; row < 7; row++) {
++		unsigned char bits = glyph[row];
++		for (int col = 0; col < 5; col++) {
++			if (bits & (0x10 >> col)) {
++				SDL_Rect pixel = { x + col * scale, y + row * scale, scale, scale };
++				SDL_RenderFillRect(r, &pixel);
++			}
++		}
++	}
++}
++
++void xyDrawTouchControls() {
++	if (!gTouchEnabled || !gvRender) return;
++
++	SDL_BlendMode oldBlend;
++	SDL_GetRenderDrawBlendMode(gvRender, &oldBlend);
++	SDL_SetRenderDrawBlendMode(gvRender, SDL_BLENDMODE_BLEND);
++
++	int sw = gvScrW > 0 ? (int)gvScrW : 426;
++	int sh = gvScrH > 0 ? (int)gvScrH : 240;
++
++	// D-Pad
++	int dpadCx = (int)(sw * 0.16f);
++	int dpadCy = (int)(sh * 0.72f);
++	int dpadR  = (int)(sh * 0.16f);
++
++	// Base D-Pad disc
++	drawCircle(gvRender, dpadCx, dpadCy, dpadR, 40, 40, 40, 60, true);
++	drawCircle(gvRender, dpadCx, dpadCy, dpadR, 200, 200, 200, 100, false);
++
++	// D-Pad arms
++	int armW = dpadR * 2 / 3;
++	int armT = dpadR / 3;
++
++	auto drawDpadArm = [&](VirtualButton btn, int ax, int ay, int aw, int ah) {
++		Uint8 alpha = gButtonState[btn] ? 200 : 70;
++		SDL_SetRenderDrawColor(gvRender, 240, 240, 240, alpha);
++		SDL_Rect r = { ax, ay, aw, ah };
++		SDL_RenderFillRect(gvRender, &r);
++		SDL_SetRenderDrawColor(gvRender, 255, 255, 255, 140);
++		SDL_RenderDrawRect(gvRender, &r);
++	};
++
++	drawDpadArm(VBTN_UP,    dpadCx - armT / 2, dpadCy - dpadR, armT, armW);
++	drawDpadArm(VBTN_DOWN,  dpadCx - armT / 2, dpadCy + dpadR - armW, armT, armW);
++	drawDpadArm(VBTN_LEFT,  dpadCx - dpadR, dpadCy - armT / 2, armW, armT);
++	drawDpadArm(VBTN_RIGHT, dpadCx + dpadR - armW, dpadCy - armT / 2, armW, armT);
++
++	// Action buttons helper
++	auto drawActionButton = [&](VirtualButton btn, float ncx, float ncy, float nr, char label) {
++		int cx = (int)(sw * ncx);
++		int cy = (int)(sh * ncy);
++		int r  = (int)(sh * nr);
++		bool pressed = gButtonState[btn];
++
++		Uint8 bgA = pressed ? 180 : 70;
++		Uint8 fgA = pressed ? 255 : 180;
++		drawCircle(gvRender, cx, cy, r, pressed ? 80 : 30, pressed ? 180 : 30, pressed ? 240 : 30, bgA, true);
++		drawCircle(gvRender, cx, cy, r, 255, 255, 255, fgA, false);
++
++		int fontScale = (r > 16) ? 2 : 1;
++		int fx = cx - (5 * fontScale) / 2;
++		int fy = cy - (7 * fontScale) / 2;
++		drawChar(gvRender, label, fx, fy, fontScale, 255, 255, 255, fgA);
++	};
++
++	// Draw A, B, X, Y buttons
++	drawActionButton(VBTN_A, 0.90f, 0.75f, 0.075f, 'A');
++	drawActionButton(VBTN_B, 0.78f, 0.85f, 0.075f, 'B');
++	drawActionButton(VBTN_X, 0.88f, 0.55f, 0.065f, 'X');
++	drawActionButton(VBTN_Y, 0.76f, 0.65f, 0.065f, 'Y');
++
++	// Top buttons (Pause, Swap)
++	drawActionButton(VBTN_PAUSE, 0.92f, 0.12f, 0.06f, '|');
++	drawActionButton(VBTN_SWAP,  0.08f, 0.12f, 0.06f, 'S');
++
++	SDL_SetRenderDrawBlendMode(gvRender, oldBlend);
++}
+diff --git a/rte/src/brux/touch.hpp b/rte/src/brux/touch.hpp
+new file mode 100644
+index 0000000..c0851e1
+--- /dev/null
++++ b/rte/src/brux/touch.hpp
+@@ -0,0 +1,21 @@
++//  Brux - Touch Controls for Mobile/Android
++//  Copyright (C) 2026 SuperTux Advance Contributors
++//
++//  This program is free software: you can redistribute it and/or modify
++//  it under the terms of the GNU Affero General Public License as published by
++//  the Free Software Foundation, either version 3 of the License, or
++//  (at your option) any later version.
++
++#ifndef _BRUX_TOUCH_H_
++#define _BRUX_TOUCH_H_
++
++#include <SDL2/SDL.h>
++
++void xyInitTouchControls();
++void xyHandleTouchFinger(const SDL_TouchFingerEvent& finger);
++void xyApplyTouchControls();
++void xyDrawTouchControls();
++void xySetTouchControls(bool enabled);
++bool xyGetTouchControls();
++
++#endif
+-- 
+2.53.0
+

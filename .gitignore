@@ -1,0 +1,27 @@
+# Build artifacts
+supertuxadvance.apk
+supertuxadvance.apk.idsig
+*.apk
+*.idsig
+screenshot.png
+
+# Android build outputs
+android/build-*/
+android/build-apk/
+android/project/app/src/main/assets/game.zip
+android/project/app/src/main/jniLibs/
+.cxx/
+build/
+
+# External dependencies (downloaded by setup-deps.sh)
+deps/
+
+# Upstream source clones (managed by build script or submodules)
+/brux-gdk/
+/supertux-advance/
+
+# System and editor files
+.DS_Store
+*.swp
+*~
+*.log

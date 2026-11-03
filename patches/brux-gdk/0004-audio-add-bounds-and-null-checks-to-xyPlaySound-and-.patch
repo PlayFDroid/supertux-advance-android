@@ -1,0 +1,50 @@
+From 61969428f192d720d6bc170436473b7636f34039 Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Tue, 3 Nov 2026 15:06:26 +0100
+Subject: [PATCH 4/4] audio: add bounds and null checks to xyPlaySound and
+ xyPlayMusic
+
+---
+ rte/src/audio/audio_sdl2.cpp | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+diff --git a/rte/src/audio/audio_sdl2.cpp b/rte/src/audio/audio_sdl2.cpp
+index b72798f..aab8fc1 100644
+--- a/rte/src/audio/audio_sdl2.cpp
++++ b/rte/src/audio/audio_sdl2.cpp
+@@ -285,6 +285,10 @@ void xyDeleteMusic(Uint32 music) {
+ // Play a sound effect
+ 
+ int xyPlaySound(Uint32 sound, Uint32 loops) {
++	if (sound >= vcSounds.size() || vcSounds[sound] == NULL) {
++		return -1;
++	}
++
+ 	// Play the audio with Mix_PlayChannel()
+ 
+ 	int i = Mix_PlayChannel(-1, vcSounds[sound], loops);
+@@ -304,6 +308,10 @@ int xyPlaySound(Uint32 sound, Uint32 loops) {
+ // Play a sound effect on a specific channel
+ 
+ int xyPlaySoundChannel(Uint32 sound, Uint32 loops, Uint32 channel) {
++	if (sound >= vcSounds.size() || vcSounds[sound] == NULL) {
++		return -1;
++	}
++
+ 	const int i = Mix_PlayChannel(channel, vcSounds[sound], loops);
+ 
+ 	if (i == -1) {
+@@ -319,6 +327,10 @@ int xyPlaySoundChannel(Uint32 sound, Uint32 loops, Uint32 channel) {
+ // Play a song
+ 
+ int xyPlayMusic(Uint32 music, Uint32 loops) {
++	if (music >= vcMusic.size() || vcMusic[music] == NULL) {
++		return -1;
++	}
++
+ 	// Play the audio with Mix_PlayChannel()
+ 
+ 	int i = Mix_PlayMusic(vcMusic[music], loops);
+-- 
+2.53.0
+

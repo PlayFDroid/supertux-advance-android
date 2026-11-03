@@ -1,0 +1,56 @@
+From 90c501f4834356f56eab434627e2978a78bfcd92 Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Tue, 3 Nov 2026 11:41:24 +0100
+Subject: [PATCH 1/2] android: force auto aspect ratio to fit screen
+ automatically
+
+---
+ game.brx | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+diff --git a/game.brx b/game.brx
+index ef60d559..028d17f0 100755
+--- a/game.brx
++++ b/game.brx
+@@ -77,6 +77,11 @@ donut("src/objects.nut")
+ 
+ if(fileExists("config.json")) config = mergeTable(config, jsonRead(fileRead("config.json")))
+ 
++// Force auto aspect ratio on Android so the screen is always automatically fitted
++if(getOS() == "Android") {
++	config.aspect = 0;
++}
++
+ // Set volume
+ setSoundVolume(config.soundVolume)
+ setMusicVolume(config.musicVolume)
+@@ -89,7 +94,7 @@ setDisplayAspect <- function(w) {
+ switch(config.aspect) {
+ 	case 0:
+ 		local disres = max(320, displayW()).tofloat() / displayH().tofloat()
+-		setDisplayAspect(disres * 240)
++		setDisplayAspect(int(disres * 240 + 0.5))
+ 		break
+ 	case 1:
+ 		setDisplayAspect(320)
+@@ -102,7 +107,7 @@ switch(config.aspect) {
+ 		break
+ 	default:
+ 		local disres = max(320, displayW()).tofloat() / displayH().tofloat()
+-		setDisplayAspect(disres * 240)
++		setDisplayAspect(int(disres * 240 + 0.5))
+ 		break
+ }
+ 
+@@ -115,7 +120,7 @@ updateDisplaySettings <- function() {
+ 	switch(config.aspect) {
+ 		case 0:
+ 			local disres = max(320, displayW()).tofloat() / displayH().tofloat()
+-			w = disres * 240
++			w = int(disres * 240 + 0.5)
+ 			break
+ 		case 1:
+ 			w = 320
+-- 
+2.53.0
+

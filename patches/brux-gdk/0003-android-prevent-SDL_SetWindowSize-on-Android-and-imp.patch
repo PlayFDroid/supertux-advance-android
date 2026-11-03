@@ -1,0 +1,211 @@
+From cb19019eaf149b9c2de701e43a999b2fd84b4e36 Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Tue, 3 Nov 2026 11:41:10 +0100
+Subject: [PATCH 3/4] android: prevent SDL_SetWindowSize on Android and improve
+ display metrics
+
+---
+ rte/src/brux/graphics.cpp |  9 +++++
+ rte/src/brux/main.cpp     | 85 ++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 92 insertions(+), 2 deletions(-)
+
+diff --git a/rte/src/brux/graphics.cpp b/rte/src/brux/graphics.cpp
+index 7bb9bf1..faddb58 100644
+--- a/rte/src/brux/graphics.cpp
++++ b/rte/src/brux/graphics.cpp
+@@ -505,6 +505,13 @@ void xySetResolution(int w, int h) {
+ 		throw std::runtime_error("Window dimensions cannot be 0");
+ 	}
+ 
++#ifdef __ANDROID__
++	xyPrint("xySetResolution: %d x %d", w, h);
++#endif
++
++	gvScrW = w;
++	gvScrH = h;
++
+ 	SDL_Rect screensize;
+ 
+ 	screensize.x = 0;
+@@ -514,8 +521,10 @@ void xySetResolution(int w, int h) {
+ 
+ 	SDL_RenderSetViewport(gvRender, &screensize);
+ 	SDL_RenderSetLogicalSize(gvRender, w, h);
++#ifndef __ANDROID__
+ 	SDL_SetWindowSize(gvWindow, w, h);
+ 	SDL_SetWindowMinimumSize(gvWindow, w, h);
++#endif
+ }
+ 
+ // Get the screen width
+diff --git a/rte/src/brux/main.cpp b/rte/src/brux/main.cpp
+index c713e7e..de41420 100644
+--- a/rte/src/brux/main.cpp
++++ b/rte/src/brux/main.cpp
+@@ -31,6 +31,15 @@
+ 
+ #include "brux/main.hpp"
+ 
++#ifdef __ANDROID__
++#include <android/log.h>
++#define LOGI(...) __android_log_print(ANDROID_LOG_INFO, "BRUX", __VA_ARGS__)
++#define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, "BRUX", __VA_ARGS__)
++#else
++#define LOGI(...)
++#define LOGE(...)
++#endif
++
+ #include <simplesquirrel/simplesquirrel.hpp>
+ 
+ #include "audio/audio.hpp"
+@@ -64,9 +73,11 @@ int main(int argc, char* argv[]) {
+ #endif
+ #ifdef __ANDROID__
+ 	const char* internalStorage = SDL_AndroidGetInternalStoragePath();
++	LOGI("internalStorage: %s", internalStorage ? internalStorage : "null");
+ 	if (internalStorage) {
+-		std::string gameDir = std::string(internalStorage) + "/game";
+-		chdir(gameDir.c_str());
++		std::string gameDir = std::string(internalStorage);
++		int chdirRes = chdir(gameDir.c_str());
++		LOGI("chdir to %s: res=%d", gameDir.c_str(), chdirRes);
+ 		gvWorkDir = gameDir;
+ 	}
+ #endif
+@@ -154,6 +165,8 @@ int main(int argc, char* argv[]) {
+ 			shouldLoad = true;
+ 		}
+ 	}
++
++	LOGI("xygapp='%s', shouldLoad=%d, fileExists(game.brx)=%d", xygapp.c_str(), (int)shouldLoad, (int)xyFileExists("game.brx"));
+ 	
+ 	// Handle situations where a main file can't be found
+ 	
+@@ -183,10 +196,13 @@ int main(int argc, char* argv[]) {
+ 	SDL_ShowCursor(0);
+ 	
+ 	try {
++		LOGI("Executing xyDonut(%s)...", xygapp.c_str());
+ 		xyDonut(xygapp);
++		LOGI("xyDonut finished normally.");
+ 	}
+ 	catch (const std::exception& err) {
+ 		xyPrint("Error running '%s': %s", xygapp.c_str(), err.what());
++		LOGE("Error running '%s': %s", xygapp.c_str(), err.what());
+ 	}
+ 	
+ 	// Unload everything once the squirrel code is finished running
+@@ -226,6 +242,8 @@ int xyInit() {
+ 
+ 	// Create window
+ #ifdef __ANDROID__
++	SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
++	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+ 	xyInitTouchControls();
+ #endif
+ 	gvWindow = SDL_CreateWindow("Brux GDK", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, gvScrW, gvScrH, SDL_WINDOW_RESIZABLE);
+@@ -386,6 +404,9 @@ void xyPrint(const SQChar *s, ...) {
+ 
+ 	std::cout << buffer << std::endl;
+ 	gvLog << buffer << std::endl;
++#ifdef __ANDROID__
++	__android_log_print(ANDROID_LOG_INFO, "BRUX", "%s", buffer);
++#endif
+ }
+ 
+ void sqPrint(HSQUIRRELVM v, const SQChar *s, ...) {
+@@ -399,6 +420,9 @@ void sqPrint(HSQUIRRELVM v, const SQChar *s, ...) {
+ 
+ 	std::cout << buffer << std::endl;
+ 	gvLog << buffer << std::endl;
++#ifdef __ANDROID__
++	__android_log_print(ANDROID_LOG_INFO, "BRUX", "%s", buffer);
++#endif
+ }
+ 
+ void sqError(HSQUIRRELVM v, const SQChar *s, ...) {
+@@ -414,6 +438,9 @@ void sqError(HSQUIRRELVM v, const SQChar *s, ...) {
+ 
+ 	std::cout << buffer << std::endl;
+ 	gvLog << buffer << std::endl;
++#ifdef __ANDROID__
++	__android_log_print(ANDROID_LOG_ERROR, "BRUX", "[SQ ERROR] %s", buffer);
++#endif
+ }
+ 
+ void xyUpdate() {
+@@ -690,17 +717,71 @@ int xyGetFrames() {
+ }
+ 
+ int xyDisplayW() {
++#ifdef __ANDROID__
++	int w = 0, h = 0;
++	if (gvRender) {
++		SDL_GetRendererOutputSize(gvRender, &w, &h);
++		if (w > 0 && h > 0) {
++			int mw = std::max(w, h);
++			LOGI("xyDisplayW: renderer output %dx%d -> %d", w, h, mw);
++			return mw;
++		}
++	}
++	if (gvWindow) {
++		SDL_GetWindowSize(gvWindow, &w, &h);
++		if (w > 0 && h > 0) {
++			int mw = std::max(w, h);
++			LOGI("xyDisplayW: window %dx%d -> %d", w, h, mw);
++			return mw;
++		}
++	}
++	SDL_DisplayMode DM;
++	if (SDL_GetCurrentDisplayMode(0, &DM) == 0) {
++		int mw = std::max(DM.w, DM.h);
++		LOGI("xyDisplayW: mode %dx%d -> %d", DM.w, DM.h, mw);
++		return mw;
++	}
++	return 2712;
++#else
+ 	SDL_DisplayMode DM;
+ 	SDL_GetCurrentDisplayMode(0, &DM);
+ 
+ 	return DM.w;
++#endif
+ }
+ 
+ int xyDisplayH() {
++#ifdef __ANDROID__
++	int w = 0, h = 0;
++	if (gvRender) {
++		SDL_GetRendererOutputSize(gvRender, &w, &h);
++		if (w > 0 && h > 0) {
++			int mh = std::min(w, h);
++			LOGI("xyDisplayH: renderer output %dx%d -> %d", w, h, mh);
++			return mh;
++		}
++	}
++	if (gvWindow) {
++		SDL_GetWindowSize(gvWindow, &w, &h);
++		if (w > 0 && h > 0) {
++			int mh = std::min(w, h);
++			LOGI("xyDisplayH: window %dx%d -> %d", w, h, mh);
++			return mh;
++		}
++	}
++	SDL_DisplayMode DM;
++	if (SDL_GetCurrentDisplayMode(0, &DM) == 0) {
++		int mh = std::min(DM.w, DM.h);
++		LOGI("xyDisplayH: mode %dx%d -> %d", DM.w, DM.h, mh);
++		return mh;
++	}
++	return 1220;
++#else
+ 	SDL_DisplayMode DM;
+ 	SDL_GetCurrentDisplayMode(0, &DM);
+ 
+ 	return DM.h;
++#endif
+ }
+ 
+ std::string xyBruxVersion() {
+-- 
+2.53.0
+

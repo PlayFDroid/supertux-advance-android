@@ -1,0 +1,56 @@
+From e559145670291d0812cf62e8f5272445f9cc86ae Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Tue, 3 Nov 2026 10:58:48 +0100
+Subject: [PATCH 1/4] build: fix Meson build (PhysFS CMP0025, SDL2_gfx
+ fallback, remove unused libgit2)
+
+---
+ rte/meson.build | 18 +++++-------------
+ 1 file changed, 5 insertions(+), 13 deletions(-)
+
+diff --git a/rte/meson.build b/rte/meson.build
+index 1e2861a..df6ff5b 100644
+--- a/rte/meson.build
++++ b/rte/meson.build
+@@ -37,7 +37,9 @@ endif
+ physfs = dependency('physfs', required: false)
+ 
+ if (not physfs.found())
+-	physfs_proj = cmake.subproject('physfs')
++	physfs_opts = cmake.subproject_options()
++	physfs_opts.add_cmake_defines({'CMAKE_POLICY_VERSION_MINIMUM': '3.5'})
++	physfs_proj = cmake.subproject('physfs', options: physfs_opts)
+ 
+ 	physfs_lib = physfs_proj.get_variable('physfs')
+ 	physfs = declare_dependency(link_with: physfs_lib, include_directories: physfs_proj.include_directories('physfs'))
+@@ -62,11 +64,8 @@ endif
+ sdl2_gfx = dependency('SDL2_gfx', required: false)
+ 
+ if not sdl2_gfx.found()
+-	sdl2_gfx = dependency(
+-		'sdl2-gfx',
+-		method: 'cmake',
+-		modules: ['SDL2::SDL2_gfx']
+-	)
++	sdl2_gfx_proj = subproject('SDL2_gfx')
++	sdl2_gfx = sdl2_gfx_proj.get_variable('sdl2_gfx_dep')
+ endif
+ 
+ deps = [
+@@ -80,13 +79,6 @@ deps = [
+ 	simplesquirrel
+ ]
+ 
+-git2 = dependency(
+-	'libgit2',
+-	fallback : ['libgit2', 'libgit2_dep']
+-)
+-
+-deps = [sdl, sdl_image, sdl_net, sdl2_gfx, audio_lib, curl, git2, physfs, simplesquirrel]
+-
+ # TODO: allow swapping of audio backend in a more clean manner
+ src = [
+ 	'src/audio/audio.cpp', 'src/audio/audio_@0@.cpp'.format(audio_backend),
+-- 
+2.53.0
+
