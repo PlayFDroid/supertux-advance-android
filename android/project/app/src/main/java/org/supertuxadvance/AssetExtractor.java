@@ -13,7 +13,7 @@ public class AssetExtractor {
     private static final String TAG = "STA_AssetExtractor";
     private static final String PREFS_NAME = "STA_PREFS";
     private static final String KEY_VERSION = "extracted_version";
-    public static final int ASSET_VERSION = 4;
+    public static final int ASSET_VERSION = 5;
 
     public static void extractAssetsIfNeeded(Context context) {
         SharedPreferences prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);

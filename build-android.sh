@@ -90,7 +90,36 @@ mkdir -p "$ASSETS_DIR"
 (
     cd "$STA_DIR"
     rm -f "$ASSETS_DIR/game.zip"
-    zip -r -q "$ASSETS_DIR/game.zip" game.brx res src klc docs icon.png lang
+
+    TMP_STAGE="/tmp/sta_asset_stage"
+    rm -rf "$TMP_STAGE"
+    mkdir -p "$TMP_STAGE"
+
+    cp -a game.brx res src klc icon.png lang "$TMP_STAGE/"
+    rm -rf "$TMP_STAGE/res/gfx/ase"
+    rm -f "$TMP_STAGE/res/gfx/unifont-merging.png"
+
+    if command -v ffmpeg >/dev/null 2>&1; then
+        python3 -c "
+import os, subprocess
+from concurrent.futures import ThreadPoolExecutor
+
+mus_dir = '$TMP_STAGE/res/mus'
+if os.path.isdir(mus_dir):
+    files = [f for f in os.listdir(mus_dir) if f.endswith('.ogg')]
+    def opt(f):
+        p = os.path.join(mus_dir, f)
+        if os.path.getsize(p) > 1.8 * 1024 * 1024:
+            tmp = p + '.tmp.ogg'
+            if subprocess.run(['ffmpeg', '-y', '-v', 'error', '-i', p, '-c:a', 'libvorbis', '-b:a', '128k', tmp]).returncode == 0:
+                os.replace(tmp, p)
+    with ThreadPoolExecutor(max_workers=8) as ex:
+        list(ex.map(opt, files))
+"
+    fi
+
+    (cd "$TMP_STAGE" && zip -9 -r -q "$ASSETS_DIR/game.zip" .)
+    rm -rf "$TMP_STAGE"
 )
 echo "      game.zip size: $(du -h "$ASSETS_DIR/game.zip" | cut -f1)"
 
