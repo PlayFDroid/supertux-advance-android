@@ -8,7 +8,7 @@ if [ ! -f "$APK" ]; then
     exit 1
 fi
 
-DEVICE="$(adb devices | grep -v "List" | grep "device$" | head -n1 | awk '{print $1}')"
+DEVICE="$(adb devices | grep -v "List" | grep -w "device" | head -n1 | awk '{print $1}')"
 
 if [ -z "$DEVICE" ]; then
     echo "Error: No ADB device connected. Please connect your phone via USB and enable USB debugging."

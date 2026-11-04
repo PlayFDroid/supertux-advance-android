@@ -1,7 +1,7 @@
 From 45781c659797b8a37f843f933a1789915e1adaf0 Mon Sep 17 00:00:00 2001
 From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
 Date: Tue, 3 Nov 2026 12:03:08 +0100
-Subject: [PATCH 2/2] fix(render): clear play screens and fix background
+Subject: [PATCH 2/3] fix(render): clear play screens and fix background
  tiling/modulo issues
 
 ---

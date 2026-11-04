@@ -1,0 +1,46 @@
+From d9c3acae447325dcde4f3f15bb68cdf2ed158ead Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Wed, 4 Nov 2026 11:33:29 +0100
+Subject: [PATCH 3/3] android: default fullscreen to true on Android with
+ option to disable
+
+---
+ game.brx       | 6 +++++-
+ src/global.nut | 2 +-
+ 2 files changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/game.brx b/game.brx
+index 028d17f0..e2edbcf1 100755
+--- a/game.brx
++++ b/game.brx
+@@ -77,9 +77,13 @@ donut("src/objects.nut")
+ 
+ if(fileExists("config.json")) config = mergeTable(config, jsonRead(fileRead("config.json")))
+ 
+-// Force auto aspect ratio on Android so the screen is always automatically fitted
++// Force auto aspect ratio and default fullscreen on Android
+ if(getOS() == "Android") {
+ 	config.aspect = 0;
++	if(!("android_fullscreen_default_applied" in config)) {
++		config.fullscreen = true;
++		config.android_fullscreen_default_applied <- true;
++	}
+ }
+ 
+ // Set volume
+diff --git a/src/global.nut b/src/global.nut
+index 593ee799..e5669701 100644
+--- a/src/global.nut
++++ b/src/global.nut
+@@ -345,7 +345,7 @@ config <- {
+ 	usefilter = false,
+ 	soundVolume = 64,
+ 	musicVolume = 64,
+-	fullscreen = false,
++	fullscreen = (getOS() == "Android"),
+ 	lookAhead = 0,
+ 	weather = true,
+ 	splitlock = false,
+-- 
+2.53.0
+
