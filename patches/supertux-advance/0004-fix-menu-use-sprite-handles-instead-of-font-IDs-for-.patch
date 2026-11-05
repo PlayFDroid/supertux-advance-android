@@ -1,0 +1,64 @@
+From ba4ac3c5e2af6a2b40c0f3f21454e24209fbb0e7 Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Thu, 5 Nov 2026 15:18:19 +0100
+Subject: [PATCH] fix(menu): use sprite handles instead of font IDs for menu
+ cursor arrows and scroll indicators
+
+---
+ src/menus.nut | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/src/menus.nut b/src/menus.nut
+index a3efb2fb..aac34200 100644
+--- a/src/menus.nut
++++ b/src/menus.nut
+@@ -22,6 +22,7 @@ menuLarge <- {
+ 	ml = 8,
+ 	p = 16,
+ 	f = font2,
++	spr = sprFont2,
+ 	y = 40,
+ 	cursorLeft = 12,
+ 	cursorRight = 0
+@@ -34,6 +35,7 @@ menuSmall <- {
+ 	ml = 16,
+ 	p = 16,
+ 	f = font,
++	spr = sprFont,
+ 	y = 32,
+ 	cursorLeft = 9,
+ 	cursorRight = 3
+@@ -61,6 +63,7 @@ textMenu <- function () {
+ 	}
+ 
+ 	local size = menu.size;
++	local menuSpr = ("spr" in size) ? size.spr : (size.f == font ? sprFont : sprFont2);
+ 	local maxVisible = size.ml;
+ 	local maxOffset = max(0, itemCount - maxVisible);
+ 	cursor = max(0, min(cursor, itemCount - 1));
+@@ -116,8 +119,8 @@ textMenu <- function () {
+ 			cursorXL = lerp(cursorXL, cursorXTargetL, 0.3);
+ 			cursorXR = lerp(cursorXR, cursorXTargetR, 0.3);
+ 			cursorY = lerp(cursorY, cursorYTarget, 0.3);
+-			drawSprite(size.f, 16, cursorXL - ((getFrames() / 15) % 2 == 0 ? 1 : 0), cursorY);
+-			drawSprite(size.f, 17, cursorXR + ((getFrames() / 15) % 2 == 0 ? 1 : 0), cursorY);
++			drawSprite(menuSpr, 16, cursorXL - ((getFrames() / 15) % 2 == 0 ? 1 : 0), cursorY);
++			drawSprite(menuSpr, 17, cursorXR + ((getFrames() / 15) % 2 == 0 ? 1 : 0), cursorY);
+ 		}
+ 
+ 		drawText(size.f, textX, textY, currCol + itemName);
+@@ -146,9 +149,9 @@ textMenu <- function () {
+ 		local indicatorX = leftAligned ? size.p : screenCenter - 24;
+ 		if (cursorOffset > 0)
+ 			for (local i = 0; i < 4; i++)
+-				drawSprite(size.f, 30, indicatorX + i * 12, screenHeight - size.y - size.h * (maxVisible + 1));
++				drawSprite(menuSpr, 30, indicatorX + i * 12, screenHeight - size.y - size.h * (maxVisible + 1));
+ 		if (cursorOffset < maxOffset)
+-			for (local i = 0; i < 4; i++) drawSprite(size.f, 31, indicatorX + i * 12, screenHeight - size.y);
++			for (local i = 0; i < 4; i++) drawSprite(menuSpr, 31, indicatorX + i * 12, screenHeight - size.y);
+ 	}
+ 
+ 	// Mouse cursor update + left click input check
+-- 
+2.53.0
+
