@@ -18,7 +18,7 @@ download_and_extract() {
     echo "  [DOWNLOADING] $name from $url..."
     local archive="$DEPS_DIR/$name.tar.gz"
     if [ ! -f "$archive" ]; then
-        curl -fSL "$url" -o "$archive"
+        curl --retry 5 --retry-delay 3 --retry-all-errors -fSL "$url" -o "$archive"
     fi
 
     echo "  [EXTRACTING] $name..."
