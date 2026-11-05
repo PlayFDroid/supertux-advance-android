@@ -33,7 +33,7 @@ jobs:
       - name: Install Build Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake ninja-build zip curl
+          sudo apt-get install -y cmake ninja-build zip curl ffmpeg
 
       - name: Build Android APK
         run: |
