@@ -9,6 +9,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STA_DIR="$SCRIPT_DIR/supertux-advance"
 BRUX_DIR="$SCRIPT_DIR/brux-gdk"
+DEPS_DIR="$SCRIPT_DIR/deps"
 ANDROID_DIR="$SCRIPT_DIR/android"
 PROJECT_DIR="$ANDROID_DIR/project"
 OUT_APK="$SCRIPT_DIR/supertuxadvance.apk"
