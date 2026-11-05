@@ -61,9 +61,10 @@ fi
 # 0. Ensure dependencies and upstream sources are present
 if [ ! -d "$BRUX_DIR" ]; then
     echo "Cloning brux-gdk from Codeberg..."
-    git clone https://codeberg.org/KelvinShadewing/brux-gdk.git "$BRUX_DIR"
+    git clone --recurse-submodules https://codeberg.org/KelvinShadewing/brux-gdk.git "$BRUX_DIR"
     (
         cd "$BRUX_DIR"
+        git submodule update --init --recursive
         for p in "$SCRIPT_DIR"/patches/brux-gdk/*.patch; do
             [ -f "$p" ] && git apply "$p"
         done
