@@ -71,6 +71,11 @@ if [ ! -d "$BRUX_DIR" ]; then
     )
 fi
 
+if [ ! -d "$BRUX_DIR/rte/subprojects/SDL2_gfx" ]; then
+    echo "Cloning SDL2_gfx..."
+    git clone https://github.com/ferzkopp/SDL2_gfx.git "$BRUX_DIR/rte/subprojects/SDL2_gfx"
+fi
+
 if [ ! -d "$STA_DIR" ]; then
     echo "Cloning supertux-advance from Codeberg..."
     git clone https://codeberg.org/KelvinShadewing/supertux-advance.git "$STA_DIR"
