@@ -10,6 +10,7 @@ android/build-*/
 android/build-apk/
 android/project/app/src/main/assets/game.zip
 android/project/app/src/main/jniLibs/
+android/jni/include/SDL2/
 .cxx/
 build/
 
