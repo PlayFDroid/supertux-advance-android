@@ -19,6 +19,7 @@ public class MainActivity extends SDLActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+        setVolumeControlStream(android.media.AudioManager.STREAM_MUSIC);
         Log.i(TAG, "onCreate: extracting assets if needed...");
         AssetExtractor.extractAssetsIfNeeded(this);
         super.onCreate(savedInstanceState);

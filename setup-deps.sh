@@ -31,4 +31,14 @@ download_and_extract "SDL2-2.30.12" "https://github.com/libsdl-org/SDL/releases/
 download_and_extract "SDL2_image-2.8.5" "https://github.com/libsdl-org/SDL_image/releases/download/release-2.8.5/SDL2_image-2.8.5.tar.gz"
 download_and_extract "SDL2_mixer-2.8.0" "https://github.com/libsdl-org/SDL_mixer/releases/download/release-2.8.0/SDL2_mixer-2.8.0.tar.gz"
 download_and_extract "SDL2_net-2.2.0" "https://github.com/libsdl-org/SDL_net/releases/download/release-2.2.0/SDL2_net-2.2.0.tar.gz"
+
+if [ -d "$SCRIPT_DIR/patches/SDL2" ]; then
+    for p in "$SCRIPT_DIR"/patches/SDL2/*.patch; do
+        if [ -f "$p" ]; then
+            echo "  [PATCH] Applying $(basename "$p") to SDL2..."
+            (cd "$DEPS_DIR/SDL2-2.30.12" && patch -p1 -N -r - < "$p" || true)
+        fi
+    done
+fi
+
 echo "=== All dependencies setup successfully ==="

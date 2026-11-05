@@ -1,0 +1,38 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Thu, 5 Nov 2026 22:00:00 +0100
+Subject: [PATCH] audio: prefer AAudio and AndroidAudio over OpenSL ES
+
+OpenSL ES is deprecated since Android 11 (API 30) and its buffer queue
+callbacks deadlock or fail on modern 64-bit Android (14/15/16/17+).
+Reordering bootstrap ensures AAudio (API 27+) is selected first, followed
+by Android AudioTrack via JNI, with OpenSL ES only as legacy fallback.
+---
+ src/audio/SDL_audio.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/src/audio/SDL_audio.c b/src/audio/SDL_audio.c
+index 8933b93..14dbfa2 100644
+--- a/src/audio/SDL_audio.c
++++ b/src/audio/SDL_audio.c
+@@ -95,15 +95,15 @@ static const AudioBootStrap *const bootstrap[] = {
+ #ifdef SDL_AUDIO_DRIVER_FUSIONSOUND
+     &FUSIONSOUND_bootstrap,
+ #endif
+-#ifdef SDL_AUDIO_DRIVER_OPENSLES
+-    &openslES_bootstrap,
+-#endif
+ #ifdef SDL_AUDIO_DRIVER_AAUDIO
+     &aaudio_bootstrap,
+ #endif
+ #ifdef SDL_AUDIO_DRIVER_ANDROID
+     &ANDROIDAUDIO_bootstrap,
+ #endif
++#ifdef SDL_AUDIO_DRIVER_OPENSLES
++    &openslES_bootstrap,
++#endif
+ #ifdef SDL_AUDIO_DRIVER_PS2
+     &PS2AUDIO_bootstrap,
+ #endif
+-- 
+2.53.0

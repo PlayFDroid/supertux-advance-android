@@ -1,0 +1,69 @@
+From 4ecf782c05901935bdf7baa136ba480ae96f3f1c Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Thu, 5 Nov 2026 21:56:28 +0100
+Subject: [PATCH] android: set AAudio/Android audio hints, remove duplicate
+ xyInitAudio, allocate 64 channels
+
+---
+ rte/src/audio/audio_sdl2.cpp | 15 +++++++++++++++
+ rte/src/brux/main.cpp        |  4 +++-
+ 2 files changed, 18 insertions(+), 1 deletion(-)
+
+diff --git a/rte/src/audio/audio_sdl2.cpp b/rte/src/audio/audio_sdl2.cpp
+index aab8fc1..7e9d6ea 100644
+--- a/rte/src/audio/audio_sdl2.cpp
++++ b/rte/src/audio/audio_sdl2.cpp
+@@ -49,6 +49,11 @@ void xyInitAudio() {
+ 	xyPrint("Audio system: SDL2 (fastfill disabled)");
+ 	#endif
+ 
++	// Explicitly initialize OGG support in SDL_mixer
++	int mix_flags = MIX_INIT_OGG | MIX_INIT_MP3 | MIX_INIT_FLAC;
++	int initted = Mix_Init(mix_flags);
++	xyPrint("Mix_Init: requested 0x%x, initted 0x%x", mix_flags, initted);
++
+ 	// Historically, brux-gdk used a 22050Hz sampling rate.
+ 	// I can't think of any good reason for that, and it makes the audio quality worse, so I've changed it to a more reasonable 44.1kHz.
+ 
+@@ -58,6 +63,16 @@ void xyInitAudio() {
+ 		return;
+ 	}
+ 
++	xyPrint("SDL audio driver in use: %s", SDL_GetCurrentAudioDriver());
++	int freq;
++	Uint16 format;
++	int channels;
++	if (Mix_QuerySpec(&freq, &format, &channels)) {
++		xyPrint("Audio spec: freq=%d, format=0x%x, channels=%d", freq, format, channels);
++	}
++
++	Mix_AllocateChannels(64);
++
+ 	isAudioLoaded = true;
+ 
+ 	vcSounds.push_back(0);
+diff --git a/rte/src/brux/main.cpp b/rte/src/brux/main.cpp
+index de41420..a8f4beb 100644
+--- a/rte/src/brux/main.cpp
++++ b/rte/src/brux/main.cpp
+@@ -231,6 +231,9 @@ int xyInit() {
+ 
+ 	// Initiate SDL2
+ 	SDL_SetHint(SDL_HINT_XINPUT_ENABLED, "0");
++#ifdef __ANDROID__
++	SDL_SetHint(SDL_HINT_AUDIODRIVER, "aaudio,android");
++#endif
+ #ifdef __EMSCRIPTEN__
+ 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS) < 0) {
+ #else
+@@ -332,7 +335,6 @@ int xyInit() {
+ 	vcTextures.push_back(0);
+ 	vcTextureNames.push_back("");
+ 	vcSprites.push_back(0);
+-	xyInitAudio();
+ 	vcFonts.push_back(0);
+ 
+ 	// Squirrel-side definitions
+-- 
+2.53.0
+
