@@ -1,1 +1,1 @@
-/home/fervi/STA/deps/SDL2_mixer-2.8.0/include/SDL_mixer.h
+../../../../deps/SDL2_mixer-2.8.0/include/SDL_mixer.h

@@ -1,1 +1,1 @@
-/home/fervi/STA/deps/SDL2-2.30.12/include/SDL_filesystem.h
+../../../../deps/SDL2-2.30.12/include/SDL_filesystem.h

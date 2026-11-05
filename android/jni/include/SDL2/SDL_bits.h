@@ -1,1 +1,1 @@
-/home/fervi/STA/deps/SDL2-2.30.12/include/SDL_bits.h
+../../../../deps/SDL2-2.30.12/include/SDL_bits.h

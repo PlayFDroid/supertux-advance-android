@@ -89,6 +89,20 @@ fi
 
 "$SCRIPT_DIR/setup-deps.sh"
 
+# Ensure SDL2 include wrapper symlinks are valid and relative
+SDL2_INC="$ANDROID_DIR/jni/include/SDL2"
+mkdir -p "$SDL2_INC"
+for h in "$DEPS_DIR"/SDL2-2.30.12/include/*.h; do
+    [ -f "$h" ] && ln -sf "../../../../deps/SDL2-2.30.12/include/$(basename "$h")" "$SDL2_INC/"
+done
+ln -sf "../../../../deps/SDL2_image-2.8.5/include/SDL_image.h" "$SDL2_INC/SDL_image.h"
+ln -sf "../../../../deps/SDL2_mixer-2.8.0/include/SDL_mixer.h" "$SDL2_INC/SDL_mixer.h"
+ln -sf "../../../../deps/SDL2_net-2.2.0/SDLnet.h" "$SDL2_INC/SDL_net.h"
+ln -sf "../../../../deps/SDL2_net-2.2.0/SDLnet.h" "$SDL2_INC/SDLnet.h"
+for h in "$BRUX_DIR"/rte/subprojects/SDL2_gfx/*.h; do
+    [ -f "$h" ] && ln -sf "../../../../brux-gdk/rte/subprojects/SDL2_gfx/$(basename "$h")" "$SDL2_INC/"
+done
+
 # 1. Package game assets from supertux-advance
 echo "[1/6] Packaging game assets from supertux-advance HEAD..."
 ASSETS_DIR="$PROJECT_DIR/app/src/main/assets"

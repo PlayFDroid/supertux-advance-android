@@ -1,1 +1,1 @@
-/home/fervi/STA/deps/SDL2-2.30.12/include/SDL_opengles2_gl2.h
+../../../../deps/SDL2-2.30.12/include/SDL_opengles2_gl2.h

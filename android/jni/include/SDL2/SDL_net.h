@@ -1,1 +1,1 @@
-/home/fervi/STA/deps/SDL2_net-2.2.0/SDL_net.h
+../../../../deps/SDL2_net-2.2.0/SDL_net.h

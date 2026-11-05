@@ -1,1 +1,1 @@
-/home/fervi/STA/deps/SDL2_image-2.8.5/include/SDL_image.h
+../../../../deps/SDL2_image-2.8.5/include/SDL_image.h
