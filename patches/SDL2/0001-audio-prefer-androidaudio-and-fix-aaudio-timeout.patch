@@ -1,0 +1,43 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Thu, 5 Nov 2026 23:00:00 +0100
+Subject: [PATCH] audio: prefer AndroidAudio (AudioTrack) and fix AAudio write timeout
+
+1. Prioritize ANDROIDAUDIO (Java AudioTrack) first as it uses reliable
+   blocking writes without fragile stream-recovery teardowns.
+2. Fix AAudioStream_write timeout from 1ms (1*1000*1000) to 200ms.
+   A 2048-sample audio chunk takes ~46.4ms to drain; a 1ms timeout
+   causes AAUDIO_ERROR_TIMEOUT on subsequent writes, destroying the stream.
+---
+--- a/src/audio/SDL_audio.c	2026-11-05 22:21:11.050242940 +0100
++++ b/src/audio/SDL_audio.c	2026-11-05 22:21:15.233618899 +0100
+@@ -93,14 +93,14 @@
+ #ifdef SDL_AUDIO_DRIVER_FUSIONSOUND
+     &FUSIONSOUND_bootstrap,
+ #endif
+-#ifdef SDL_AUDIO_DRIVER_OPENSLES
+-    &openslES_bootstrap,
++#ifdef SDL_AUDIO_DRIVER_ANDROID
++    &ANDROIDAUDIO_bootstrap,
+ #endif
+ #ifdef SDL_AUDIO_DRIVER_AAUDIO
+     &aaudio_bootstrap,
+ #endif
+-#ifdef SDL_AUDIO_DRIVER_ANDROID
+-    &ANDROIDAUDIO_bootstrap,
++#ifdef SDL_AUDIO_DRIVER_OPENSLES
++    &openslES_bootstrap,
+ #endif
+ #ifdef SDL_AUDIO_DRIVER_PS2
+     &PS2AUDIO_bootstrap,
+--- a/src/audio/aaudio/SDL_aaudio.c	2026-11-05 22:21:11.052314362 +0100
++++ b/src/audio/aaudio/SDL_aaudio.c	2026-11-05 22:21:18.263340833 +0100
+@@ -300,7 +300,7 @@
+ {
+     struct SDL_PrivateAudioData *private = this->hidden;
+     aaudio_result_t res;
+-    int64_t timeoutNanoseconds = 1 * 1000 * 1000; /* 8 ms */
++    int64_t timeoutNanoseconds = 200 * 1000 * 1000; /* 200 ms */
+     res = ctx.AAudioStream_write(private->stream, private->mixbuf, private->mixlen / private->frame_size, timeoutNanoseconds);
+     if (res < 0) {
+         LOGI("%s : %s", __func__, ctx.AAudio_convertResultToText(res));

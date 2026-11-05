@@ -1,0 +1,74 @@
+From 764ac9e25b1922606fdb736c69a6180057c0fb45 Mon Sep 17 00:00:00 2001
+From: "Fervi (IntinteDAO)" <lordfervi@protonmail.com>
+Date: Thu, 5 Nov 2026 22:24:15 +0100
+Subject: [PATCH] android: prefer android (AudioTrack) driver, cleanly reset
+ and close audio on init/unload
+
+---
+ rte/src/audio/audio_sdl2.cpp | 23 +++++++++++++++++++++++
+ rte/src/brux/main.cpp        |  2 +-
+ 2 files changed, 24 insertions(+), 1 deletion(-)
+
+diff --git a/rte/src/audio/audio_sdl2.cpp b/rte/src/audio/audio_sdl2.cpp
+index 7e9d6ea..9cb1dff 100644
+--- a/rte/src/audio/audio_sdl2.cpp
++++ b/rte/src/audio/audio_sdl2.cpp
+@@ -43,6 +43,15 @@ bool xyIsAudioAvailable() {
+ // Initialize audio
+ 
+ void xyInitAudio() {
++	isAudioLoaded = false;
++	didAudioLoadFail = false;
++	vcSounds.clear();
++	vcMusic.clear();
++	#ifdef USE_FASTFILL
++	unloadedSounds.clear();
++	unloadedMusic.clear();
++	#endif
++
+ 	#ifdef USE_FASTFILL
+ 	xyPrint("Audio system: SDL2 (fastfill enabled)");
+ 	#else
+@@ -83,12 +92,26 @@ void xyUnloadAudio() {
+ 	for (int i = 0; i < static_cast<int>(vcSounds.size()); i++) {
+ 		xyDeleteSound(i);
+ 	}
++	vcSounds.clear();
+ 
+ 	for (int i = 0; i < static_cast<int>(vcMusic.size()); i++) {
+ 		xyDeleteMusic(i);
+ 	}
++	vcMusic.clear();
++
++	#ifdef USE_FASTFILL
++	unloadedSounds.clear();
++	unloadedMusic.clear();
++	#endif
++
++	while (Mix_QuerySpec(NULL, NULL, NULL)) {
++		Mix_CloseAudio();
++	}
+ 
+ 	Mix_Quit();
++
++	isAudioLoaded = false;
++	didAudioLoadFail = false;
+ }
+ 
+ // Allocate a specific amount of channels
+diff --git a/rte/src/brux/main.cpp b/rte/src/brux/main.cpp
+index a8f4beb..63f4cd7 100644
+--- a/rte/src/brux/main.cpp
++++ b/rte/src/brux/main.cpp
+@@ -232,7 +232,7 @@ int xyInit() {
+ 	// Initiate SDL2
+ 	SDL_SetHint(SDL_HINT_XINPUT_ENABLED, "0");
+ #ifdef __ANDROID__
+-	SDL_SetHint(SDL_HINT_AUDIODRIVER, "aaudio,android");
++	SDL_SetHint(SDL_HINT_AUDIODRIVER, "android,aaudio");
+ #endif
+ #ifdef __EMSCRIPTEN__
+ 	if(SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER | SDL_INIT_EVENTS) < 0) {
+-- 
+2.53.0
+

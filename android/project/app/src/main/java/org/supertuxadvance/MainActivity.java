@@ -30,4 +30,10 @@ public class MainActivity extends SDLActivity {
         // Enforce landscape orientation strictly at all times
         setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
     }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        System.exit(0);
+    }
 }
