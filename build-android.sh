@@ -145,8 +145,8 @@ for abi in "${ABIS[@]}"; do
             -DANDROID_ABI="$abi" \
             -DANDROID_PLATFORM=android-24 \
             -DCMAKE_BUILD_TYPE=Release \
-            "$ANDROID_DIR/jni" > /dev/null
-        ninja -j"$(nproc)" main > /dev/null
+            "$ANDROID_DIR/jni"
+        ninja -j"$(nproc)" main
     )
     mkdir -p "$JNILIBS_DIR/$abi"
     cp "$BUILD_DIR/libmain.so" "$JNILIBS_DIR/$abi/"
